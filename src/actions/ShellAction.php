@@ -11,8 +11,9 @@ use yii\web\Response;
 
 /**
  * Class ShellAction
+ *
  * @package lo\wshell\controllers
- * @author Lukyanov Andrey <loveorigami@mail.ru>
+ * @author  Lukyanov Andrey <loveorigami@mail.ru>
  */
 class ShellAction extends Action
 {
@@ -72,54 +73,14 @@ class ShellAction extends Action
     public function run()
     {
         //run the process
-        $exitCode = $this->process->run(function ($type, $data) {
-            $isError = strcasecmp($type, Process::ERR) === 0;
-
-            if ($this->outputCallback !== null && $this->outputCallback instanceof \Closure) {
-                call_user_func($this->outputCallback, $this, $data, $isError);
+        $this->process->run(function ($type, $buffer) {
+            if (Process::ERR === $type) {
+                echo 'ERR > ' . PHP_EOL . $buffer;
             } else {
-                $this->handleOutput($data, $isError);
+                echo 'OUT > ' . PHP_EOL . $buffer;
             }
         });
 
-        //prepare the response
-        $response = Yii::$app->response;
-        $response->format = Response::FORMAT_RAW;
-
-        //fetch result and send the content
-        if (strcasecmp($exitCode, (string)$this->commandExitCodeSuccess) === 0) {
-            $response->statusCode = 200;
-        } else {
-            $response->statusCode = 500;
-        }
-
-        return sprintf("\nExit code of process: %d\n%d", $exitCode, $exitCode);
-    }
-
-    /**
-     * Flushes the output buffer
-     */
-    public function flushOutput()
-    {
-        ob_flush();
-        flush();
-    }
-
-    /**
-     * Default output handler
-     *
-     * @param string $data the output data received
-     * @param bool $isError whether or not this was an error message
-     */
-    protected function handleOutput($data, $isError)
-    {
-        if (defined('STDOUT') && defined('STDERR')) {
-            fwrite($isError ? STDERR : STDOUT, $data);
-        } else {
-            echo $data;
-            exit();
-        }
-
-        $this->flushOutput();
+        //return $this->process->getOutput();
     }
 }
