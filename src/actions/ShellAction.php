@@ -72,15 +72,47 @@ class ShellAction extends Action
      */
     public function run()
     {
+        $response = Yii::$app->response;
+        $response->format = Response::FORMAT_RAW;
+        $response->statusCode = 200;
+        $response->send();
+
         //run the process
-        $this->process->run(function ($type, $buffer) {
-            if (Process::ERR === $type) {
-                echo 'ERR > ' . PHP_EOL . $buffer;
+        $exitCode = $this->process->run(function ($type, $data) {
+            $isError = strcasecmp($type, Process::ERR) === 0;
+            if ($this->outputCallback !== null && $this->outputCallback instanceof \Closure) {
+                call_user_func($this->outputCallback, $this, $data, $isError);
             } else {
-                echo 'OUT > ' . PHP_EOL . $buffer;
+                $this->handleOutput($data, $isError);
             }
         });
 
-        //return $this->process->getOutput();
+        $this->handleOutput(sprintf("\nExit code of process: %d\n%d", $exitCode, $exitCode), $exitCode !== 0);
+    }
+
+    /**
+     * Flushes the output buffer
+     */
+    public function flushOutput()
+    {
+        ob_flush();
+        flush();
+    }
+
+    /**
+     * Default output handler
+     *
+     * @param string $data the output data received
+     * @param bool $isError whether or not this was an error message
+     */
+    protected function handleOutput($data, $isError)
+    {
+        if (defined('STDOUT') && defined('STDERR')) {
+            fwrite($isError ? STDERR : STDOUT, $data);
+        } else {
+            echo $data;
+        }
+
+        $this->flushOutput();
     }
 }
